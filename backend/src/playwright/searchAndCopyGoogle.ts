@@ -218,7 +218,7 @@ const searchAndCopyGoogle = async ({
     } else {
       console.error('❌ Error in Google search:', String(error));
     }
-    outputRecord.aio = 'Error during Google search';
+    outputRecord.aio = 'Error during Google search' + error.message;
   }
 };
 

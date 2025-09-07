@@ -1,9 +1,19 @@
-import { getJson } from "serpapi";
+import { getJson } from 'serpapi';
+import dotenv from 'dotenv';
 
-getJson({
-  // q: "台北有哪些 SEO 公司口碑佳，成功把客戶關鍵字從第 3 頁拉到首頁？",
-  q: "drop shipping",
-  api_key: process.env.SERPAPI_KEY
-}, (json) => {
-  console.log(json["ai_overview"]);
-});
+process.env.SERPAPI_KEY = 'e06ba31a63f77c97674055e134ebdceb92646c680cc9c68ac4f34fee9abfec35';
+
+getJson(
+  {
+    q: '美妝保養品電商，台灣有哪些擅長內容操作的SEO公司？',
+    api_key: process.env.SERPAPI_KEY,
+    location_requested: 'Taipei, Taiwan',
+    location_used: 'Taipei,Taiwan',
+    google_domain: 'google.com.tw',
+    hl: 'zh-tw',
+    gl: 'tw',
+  },
+  json => {
+    console.log(json['ai_overview']);
+  }
+);

@@ -1,7 +1,7 @@
 import { BrowserContext, Page } from 'playwright';
 import clipboard from 'clipboardy';
 import { OutputRecord, UserParams } from './types.js';
-import { delay, logErrorAndScreenshot } from './utils.js';
+import { delay, logErrorAndScreenshot, retryWithBackoff } from './utils.js';
 
 const clearInput = async (page: Page) => {
   try {
@@ -78,14 +78,39 @@ const copyAnswer = async (
       'article[data-testid="conversation-turn-2"] button[data-testid="copy-turn-action-button"]';
     await page.waitForSelector(copyButtonSelector, { timeout: 120000 });
     await page.locator(copyButtonSelector).scrollIntoViewIfNeeded();
-    await page.locator(copyButtonSelector).click({ force: true });
-    await delay(1);
-    await page.locator(copyButtonSelector).click({ force: true });
-    await delay(1);
-    await page.locator(copyButtonSelector).click({ force: true });
-
-    // Read the clipboard
-    const clipboardText = await clipboard.read();
+    
+    // 1. Store the clipboard content before clicking copy button
+    let previousClipboardContent = '';
+    try {
+      previousClipboardContent = await clipboard.read();
+    } catch {
+      // Ignore if clipboard is empty or can't be read
+    }
+    
+    // 2. Wrap click inside retryWithBackoff with retry = 5
+    let clipboardText = '';
+    try {
+      clipboardText = await retryWithBackoff(async () => {
+        await page.locator(copyButtonSelector).click({ force: true });
+        await delay(1);
+        
+        // Read clipboard content inside the retry function
+        const currentClipboardText = await clipboard.read();
+        
+        // If clipboard content has changed, return the new content
+        if (currentClipboardText !== previousClipboardContent) {
+          console.log('✅ Clipboard content changed successfully');
+          return currentClipboardText;
+        }
+        
+        // If clipboard hasn't changed, throw error to trigger retry
+        throw new Error('Clipboard content unchanged');
+      }, 5, 1000);
+    } catch (error) {
+      // If all retries failed, assign fallback message
+      clipboardText = 'not able to copy result';
+      console.log('⚠️ Clipboard content unchanged after retries');
+    }
 
     console.log('✅ Copied answer from clipboard');
     return clipboardText;

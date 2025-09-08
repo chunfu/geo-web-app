@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useReports } from '../hooks/useReports';
 import { useDownloadFile } from '../hooks/useDownloadFile';
 import { useCancelJob } from '../hooks/useQueue';
@@ -39,27 +39,19 @@ const CancelJobButton = ({ reportId }: { reportId: string }) => {
 
 export const ReportPage = () => {
   const [isConnected, setIsConnected] = useState(false);
-  const [eventSource, setEventSource] = useState<EventSource | null>(null);
   const { data: reportsData, isLoading, error, refetch } = useReports();
   const downloadMutation = useDownloadFile();
 
-  const connectSSE = () => {
-    console.log('🔄 Connecting to SSE...');
-    
-    // Close existing connection if any
-    if (eventSource) {
-      console.log('🔌 Closing existing SSE connection');
-      eventSource.close();
-    }
 
-    const newEventSource = new EventSource(`${API_BASE_URL}/api/sse`);
+  useEffect(() => {
+    const eventSource = new EventSource(`${API_BASE_URL}/api/sse`);
 
-    newEventSource.onopen = () => {
+    eventSource.onopen = () => {
       console.log('✅ SSE connection opened');
       setIsConnected(true);
     };
 
-    newEventSource.onmessage = event => {
+    eventSource.onmessage = event => {
       console.log('📨 Received SSE message:', event.data);
       try {
         // Parse the message to validate it's valid JSON
@@ -70,44 +62,17 @@ export const ReportPage = () => {
           console.log('🔄 Report status update received, refetching reports...');
           refetch();
         }
-        
-        // Refetch reports whenever we receive any SSE notification
-        console.log('🔄 SSE event received, refetching reports...');
-        refetch();
       } catch (error) {
         console.error('❌ Error parsing SSE message:', error);
       }
     };
 
-    newEventSource.onerror = error => {
+    eventSource.onerror = error => {
       console.error('❌ SSE connection error:', error);
       setIsConnected(false);
     };
 
-    setEventSource(newEventSource);
-  };
-  
-
-  const disconnectSSE = () => {
-    if (eventSource) {
-      console.log('🔌 Manually disconnecting SSE');
-      eventSource.close();
-      setEventSource(null);
-      setIsConnected(false);
-    }
-  };
-
-  const handleReconnect = () => {
-    disconnectSSE();
-    connectSSE();
-  };
-
-  useEffect(() => {
-    connectSSE();
-
-    return () => {
-      disconnectSSE();
-    };
+    return () => eventSource.close();
   }, []);
 
   const getStatusColor = (status: Report['status']) => {
@@ -218,7 +183,7 @@ export const ReportPage = () => {
               </div>
               {!isConnected && (
                 <button
-                  onClick={handleReconnect}
+                  onClick={window.location.reload}
                   className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
                 >
                   重新連接

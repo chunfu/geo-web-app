@@ -31,7 +31,8 @@
     "playwright": "^1.54.2",
     "playwright-extra": "^4.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "serpapi": "^2.1.0"
+    "serpapi": "^2.1.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

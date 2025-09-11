@@ -1,6 +1,7 @@
 import { getJson } from 'serpapi';
 import { AiOverview, OutputRecord, UserParams } from './types.js';
 import { retryWithBackoff } from './utils.js';
+import { logger } from '../utils/logger.js';
 
 // Retry mechanism with exponential backoff
 // Convert ai_overview text_blocks to markdown format
@@ -67,12 +68,14 @@ function checkBrandExistenceInText(text: string, brandNames: string[]): number {
   }
 
   const textLower = text.toLowerCase();
-  
+
   let matchCount = 0;
   for (const brand of brandNames) {
     if (brand.includes('+')) {
       // Handle brands with aliases (e.g., "google+alphabet")
-      const brandAliases = brand.split('+').map(alias => alias.trim().toLowerCase());
+      const brandAliases = brand
+        .split('+')
+        .map(alias => alias.trim().toLowerCase());
       const hasAnyAlias = brandAliases.some(alias => textLower.includes(alias));
       if (hasAnyAlias) {
         matchCount++;
@@ -170,6 +173,7 @@ async function getSerpApiResult(
 
     return json;
   } catch (error) {
+    logger.error('searchAndCopyGoogle', '❌ Error in Serpapi', { error });
     throw error;
   }
 }
@@ -184,12 +188,21 @@ const searchAndCopyGoogle = async ({
   params: UserParams;
 }) => {
   try {
-    console.log(`🔍 Searching Google Taiwan for: ${question}`);
+    logger.info('searchAndCopyGoogle', '🔍 Searching Google Taiwan', {
+      question,
+    });
 
     const result = await getSerpApiResult(question);
+    logger.info('searchAndCopyGoogle', '✅ Found AI overview from Serpapi', {
+      result,
+    });
 
     if (result.ai_overview) {
+      logger.info('searchAndCopyGoogle', 'Start processing AI overview');
       const markdownContent = convertToMarkdown(result.ai_overview);
+      logger.info('searchAndCopyGoogle', '✅ Converted markdown', {
+        markdownContent,
+      });
       outputRecord.aio = markdownContent;
       outputRecord.aioBrandCompare = calculateAioBrandCompare(
         markdownContent,
@@ -205,20 +218,24 @@ const searchAndCopyGoogle = async ({
         ? '有'
         : '無';
 
-      console.log('✅ Found AI overview from Google');
+      logger.info('searchAndCopyGoogle', '🎉 Done processing AI overview', {
+        outputRecord,
+      });
     } else {
       outputRecord.aio = 'No AI overview found';
       outputRecord.aioBrandCompare = '否';
       outputRecord.aioBrandExist = '無';
-      console.log('⚠️ No AI overview available');
+      logger.info('searchAndCopyGoogle', '⚠️ No AI overview available', {
+        question,
+      });
     }
   } catch (error: unknown) {
     if (error instanceof Error) {
-      console.error('❌ Error in Google search:', error.message);
+      logger.error('searchAndCopyGoogle', '❌ Error in Google search', { error: error.message });
     } else {
-      console.error('❌ Error in Google search:', String(error));
+      logger.error('searchAndCopyGoogle', '❌ Error in Google search', { error: String(error) });
     }
-    outputRecord.aio = 'Error during Google search' + error.message;
+    outputRecord.aio = 'Error during Google search: ' + error.message;
   }
 };
 
